@@ -4,9 +4,17 @@ import logging
 from urllib.parse import urljoin
 from typing import List
 
+import github
 from markdownify import markdownify
+from requests.exceptions import ConnectionError
 
-from argus.incident.ticket.base import TicketPlugin, TicketPluginException
+from argus.incident.ticket.base import (
+    TicketClientException,
+    TicketCreationException,
+    TicketPlugin,
+    TicketPluginException,
+    TicketSettingsException,
+)
 
 LOG = logging.getLogger(__name__)
 
@@ -22,25 +30,19 @@ class GithubPlugin(TicketPlugin):
     def import_settings(cls):
         try:
             endpoint, authentication, ticket_information = super().import_settings()
-        except ValueError as e:
-            LOG.exception("Could not import settings for ticket plugin.")
-            raise TicketPluginException(f"Github: {e}")
+        except TicketSettingsException as e:
+            LOG.exception(e)
+            raise TicketSettingsException(f"Github: {e}")
 
         if "token" not in authentication.keys():
-            LOG.error(
-                "Github: No token can be found in the authentication information. Please update the setting 'TICKET_AUTHENTICATION_SECRET'."
-            )
-            raise TicketPluginException(
-                "Github: No token can be found in the authentication information. Please update the setting 'TICKET_AUTHENTICATION_SECRET'."
-            )
+            authentication_error = "Github: No authentication token can be found in the authentication information. Please check and update the setting 'TICKET_AUTHENTICATION_SECRET'."
+            LOG.error(authentication_error)
+            raise TicketSettingsException(authentication_error)
 
         if "project_namespace_and_name" not in ticket_information.keys():
-            LOG.error(
-                "Github: No project namespace and name can be found in the ticket information. Please update the setting 'TICKET_INFORMATION'."
-            )
-            raise TicketPluginException(
-                "Github: No project namespace and name can be found in the ticket information. Please update the setting 'TICKET_INFORMATION'."
-            )
+            project_namespace_and_name_error = "Github: No project namespace and name can be found in the ticket information. Please check and update the setting 'TICKET_INFORMATION'."
+            LOG.error(project_namespace_and_name_error)
+            raise TicketSettingsException(project_namespace_and_name_error)
 
         return endpoint, authentication, ticket_information
 
@@ -84,10 +86,13 @@ class GithubPlugin(TicketPlugin):
             base_url = urljoin(endpoint, "api/v3")
 
         try:
-            client = Github(base_url=base_url, login_or_token=authentication["token"])
-        except Exception as e:
-            LOG.exception("Github: Client could not be created.")
-            raise TicketPluginException(f"Github: {e}")
+            client = github.Github(
+                base_url=base_url, login_or_token=authentication["token"]
+            )
+        except Exception:
+            client_error = "Github: Client could not be created."
+            LOG.exception(client_error)
+            raise TicketClientException(client_error)
         else:
             return client
 
@@ -103,6 +108,18 @@ class GithubPlugin(TicketPlugin):
 
         try:
             repo = client.get_repo(ticket_information["project_namespace_and_name"])
+        except ConnectionError:
+            connection_error = "Github: Could not connect to Github."
+            LOG.exception(connection_error)
+            raise TicketSettingsException(connection_error)
+        except github.BadCredentialsException:
+            authentication_error = "Github: The authentication details are incorrect. Please check and update the setting 'TICKET_AUTHENTICATION_SECRET'."
+            LOG.exception(authentication_error)
+            raise TicketSettingsException(authentication_error)
+        except github.UnknownObjectException:
+            repo_error = "Github: Could not find repository."
+            LOG.exception(repo_error)
+            raise TicketSettingsException(repo_error)
         except Exception as e:
             error = f"Github: {e}"
             LOG.exception(error)
@@ -129,8 +146,16 @@ class GithubPlugin(TicketPlugin):
                 body=markdown_body,
                 labels=labels,
             )
+        except ConnectionError:
+            connection_error = "Github: Could not connect to Github."
+            LOG.exception(connection_error)
+            raise TicketSettingsException(connection_error)
+        except github.GithubException as e:
+            error = e.data["message"]
+            LOG.exception("Github: Ticket could not be created.")
+            raise TicketCreationException(f"Github: {error}")
         except Exception as e:
             LOG.exception("Github: Ticket could not be created.")
-            raise TicketPluginException(f"Github: {e}")
+            raise TicketCreationException(f"Github: {e}")
         else:
             return ticket.html_url
