@@ -2,15 +2,16 @@
 
 import logging
 from urllib.parse import urljoin
+from typing import List
 
-from github import Github
+from markdownify import markdownify
 
 from argus.incident.ticket.base import TicketPlugin, TicketPluginException
 
 LOG = logging.getLogger(__name__)
 
 
-__version__ = "0.1"
+__version__ = "1.0"
 __all__ = [
     "GithubPlugin",
 ]
@@ -44,6 +45,37 @@ class GithubPlugin(TicketPlugin):
         return endpoint, authentication, ticket_information
 
     @staticmethod
+    def convert_tags_to_dict(tag_dict: dict) -> dict:
+        incident_tags_list = [entry["tag"].split("=") for entry in tag_dict]
+        return {key: value for key, value in incident_tags_list}
+
+    @staticmethod
+    def get_labels(
+        ticket_information: dict, serialized_incident: dict
+    ) -> tuple[dict, List[str]]:
+        incident_tags = GithubPlugin.convert_tags_to_dict(serialized_incident["tags"])
+        labels = ticket_information.get("labels_set", [])
+        labels_mapping = ticket_information.get("labels_mapping", [])
+        missing_fields = []
+
+        for field in labels_mapping:
+            if type(field) is dict:
+                # Information can be found in tags
+                label = incident_tags.get(field["tag"], None)
+                if label:
+                    labels.append(label)
+                else:
+                    missing_fields.append(field["tag"])
+            else:
+                label = serialized_incident.get(field, None)
+                if label:
+                    labels.append(label)
+                else:
+                    missing_fields.append(field)
+
+        return labels, missing_fields
+
+    @staticmethod
     def create_client(endpoint, authentication):
         """Creates and returns a Github client"""
         if endpoint == "https://github.com/" or endpoint == "https://github.com":
@@ -71,8 +103,31 @@ class GithubPlugin(TicketPlugin):
 
         try:
             repo = client.get_repo(ticket_information["project_namespace_and_name"])
+        except Exception as e:
+            error = f"Github: {e}"
+            LOG.exception(error)
+            raise TicketPluginException(error)
+
+        label_contents, missing_fields = cls.get_labels(
+            ticket_information=ticket_information,
+            serialized_incident=serialized_incident,
+        )
+        repo_labels = repo.get_labels()
+        labels = [label for label in repo_labels if label.name in label_contents]
+
+        html_body = cls.create_html_body(
+            serialized_incident={
+                "missing_fields": missing_fields,
+                **serialized_incident,
+            }
+        )
+        markdown_body = markdownify(html=html_body)
+
+        try:
             ticket = repo.create_issue(
-                title=serialized_incident["description"], body=str(serialized_incident)
+                title=serialized_incident["description"],
+                body=markdown_body,
+                labels=labels,
             )
         except Exception as e:
             LOG.exception("Github: Ticket could not be created.")
