@@ -5,8 +5,8 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "argus_ticket_github"
 authors = [{name = "Johanna England", email = "johanna.england@sikt.no"}]
-readme = "README.rst"
 maintainers = [{name = "Johanna England", email = "johanna.england@sikt.no"}]
+readme = "README.md"
 dependencies = [
     "argus-server>=1.9",
     "markdownify>=0.11",
@@ -37,4 +37,4 @@ test = [
 
 [project.urls]
 Home = "https://github.com/Uninett/argus_ticket_github"
-Source = "https://github.com/Uninett/argus_ticket_github"
+Issues = "https://github.com/Uninett/argus_ticket_github/issues"
