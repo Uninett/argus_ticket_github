@@ -9,7 +9,9 @@ readme = "README.rst"
 maintainers = [{name = "Johanna England", email = "johanna.england@sikt.no"}]
 dependencies = [
     "argus-server>=1.9",
-    "PyGithub",
+    "markdownify>=0.11",
+    "PyGithub>=1.58",
+    "requests>=2.14",
 ]
 requires-python = ">=3.7"
 classifiers = [
