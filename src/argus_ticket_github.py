@@ -61,7 +61,7 @@ class GithubPlugin(TicketPlugin):
         missing_fields = []
 
         for field in labels_mapping:
-            if type(field) is dict:
+            if type(field).isinstance(dict):
                 # Information can be found in tags
                 label = incident_tags.get(field["tag"], None)
                 if label:
@@ -87,7 +87,7 @@ class GithubPlugin(TicketPlugin):
 
         try:
             client = github.Github(
-                base_url=base_url, login_or_token=authentication["token"]
+                base_url=base_url, auth=github.Auth.Token(authentication["token"])
             )
         except Exception:
             client_error = "Github: Client could not be created."
