@@ -61,7 +61,7 @@ class GithubPlugin(TicketPlugin):
         missing_fields = []
 
         for field in labels_mapping:
-            if type(field).isinstance(dict):
+            if isinstance(field, dict):
                 # Information can be found in tags
                 label = incident_tags.get(field["tag"], None)
                 if label:
