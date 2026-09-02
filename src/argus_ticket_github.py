@@ -1,13 +1,10 @@
 "Allow argus-server to create tickets in Github"
 
 import logging
-from urllib.parse import urljoin
 from typing import List
+from urllib.parse import urljoin
 
 import github
-from markdownify import markdownify
-from requests.exceptions import ConnectionError
-
 from argus.incident.ticket.base import (
     TicketClientException,
     TicketCreationException,
@@ -15,6 +12,8 @@ from argus.incident.ticket.base import (
     TicketPluginException,
     TicketSettingsException,
 )
+from markdownify import markdownify
+from requests.exceptions import ConnectionError
 
 LOG = logging.getLogger(__name__)
 
