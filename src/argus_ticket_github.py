@@ -5,6 +5,7 @@ from typing import List
 from urllib.parse import urljoin
 
 import github
+from argus.incident.models import Incident
 from argus.incident.ticket.base import (
     TicketClientException,
     TicketCreationException,
@@ -159,3 +160,10 @@ class GithubPlugin(TicketPlugin):
             raise TicketCreationException(f"Github: {e}")
         else:
             return ticket.html_url
+
+    @staticmethod
+    def get_ticket_identifier(incident: Incident) -> str:
+        try:
+            return incident.ticket_url.rsplit("/issues/", maxsplit=1)[1].strip("/")
+        except Exception:
+            return incident.ticket_url
